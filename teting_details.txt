@@ -1,0 +1,6 @@
+{
+  "name": "wakisa chihana",
+  "email": "clyvenzwakisa@gmail.com",
+  "password": "122002WAk",
+  "role": "coach"
+}
