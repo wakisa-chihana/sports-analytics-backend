@@ -1,0 +1,87 @@
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('coach', 'player') NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE teams (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    coach_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE team_players (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    team_id INT NOT NULL,
+    player_id INT NOT NULL,
+    position VARCHAR(50),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (team_id, player_id)
+);
+
+CREATE TABLE player_profiles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    player_id INT NOT NULL UNIQUE,
+    age INT,
+    height_cm FLOAT,
+    weight_kgs FLOAT,
+    preferred_foot_encoded INT,
+    weak_foot INT,
+    skill_moves INT,
+    crossing INT,
+    finishing INT,
+    heading_accuracy INT,
+    short_passing INT,
+    volleys INT,
+    dribbling INT,
+    curve INT,
+    freekick_accuracy INT,
+    long_passing INT,
+    ball_control INT,
+    acceleration INT,
+    sprint_speed INT,
+    agility INT,
+    reactions INT,
+    balance INT,
+    shot_power INT,
+    jumping INT,
+    stamina INT,
+    strength INT,
+    long_shots INT,
+    aggression INT,
+    interceptions INT,
+    positioning INT,
+    vision INT,
+    penalties INT,
+    composure INT,
+    marking INT,
+    standing_tackle INT,
+    sliding_tackle INT,
+    overall_performance DECIMAL(5,2),
+    FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE password_reset_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    is_used BOOLEAN DEFAULT FALSE,
+    expires_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
