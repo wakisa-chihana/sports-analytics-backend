@@ -12,14 +12,19 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
-#middleware to allow CORS for all origins
+origins = [
+    "http://localhost:3000",  # dev
+    "https://your-frontend-domain.com",  # prod
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 #status route to check if the API is running
 @app.get("/", tags=["Root"])
 def read_root():
