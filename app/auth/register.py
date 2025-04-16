@@ -3,8 +3,12 @@ from pydantic import BaseModel, EmailStr, Field, constr
 from passlib.context import CryptContext
 from db.connection import db_connect, close_db_connection
 from datetime import datetime, timedelta
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import os
+from dotenv import load_dotenv
+
+# 🌍 Load .env variables
+load_dotenv()
 
 router = APIRouter(
     prefix="/users",
@@ -14,7 +18,9 @@ router = APIRouter(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # 🔐 Secret key for cookie signing (load from .env in production)
-SECRET_KEY = os.getenv("COOKIE_SECRET_KEY", "super-secret-key")
+SECRET_KEY = os.getenv("COOKIE_SECRET_KEY", "fallback-super-secret-key")
+if SECRET_KEY == "fallback-super-secret-key":
+    print("Warning: Using fallback secret key! Make sure to set COOKIE_SECRET_KEY in .env.")
 serializer = URLSafeTimedSerializer(SECRET_KEY)
 
 class UserCreate(BaseModel):
@@ -29,18 +35,19 @@ def register_user(user: UserCreate, response: Response):
     cursor = None
 
     try:
+        # 🔄 Connect to DB
         connection = db_connect()
         cursor = connection.cursor()
 
-        # Check for existing email
+        # Check if email already exists
         cursor.execute("SELECT id FROM users WHERE email = %s", (user.email,))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Email already registered.")
 
-        # Hash password
+        # Hash the password securely
         hashed_password = pwd_context.hash(user.password)
 
-        # Insert user
+        # Insert new user into DB
         cursor.execute(
             "INSERT INTO users (name, email, password_hash, role) VALUES (%s, %s, %s, %s)",
             (user.name, user.email, hashed_password, user.role)
@@ -51,7 +58,7 @@ def register_user(user: UserCreate, response: Response):
         cursor.execute("SELECT id FROM users WHERE email = %s", (user.email,))
         user_id = cursor.fetchone()[0]
 
-        # 🍪 User data to be stored in cookie
+        # 🍪 Data to store in secure cookie (minimal user info)
         user_data = {
             "id": user_id,
             "name": user.name,
@@ -59,24 +66,24 @@ def register_user(user: UserCreate, response: Response):
             "role": user.role
         }
 
-        # 🔐 Sign user data
+        # 🔐 Sign the user data securely
         cookie_value = serializer.dumps(user_data)
 
-        # 🕒 Expire after 3 hours
+        # 🕒 Expire cookie after 3 hours
         expires = datetime.utcnow() + timedelta(hours=3)
 
+        # Set the secure cookie
         response.set_cookie(
-            key="user_session",
+            key="122002",
             value=cookie_value,
             httponly=True,
-            max_age=3 * 3600,
+            secure=True,  # Ensure True when using HTTPS in production
+            max_age=3 * 3600,  # 3 hours expiration
             expires=expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT"),
-            samesite="Lax",
-            secure=False  # Set to True in production (HTTPS)
+            samesite="Lax"  # Lax is a reasonable default for many scenarios
         )
 
-        return {"status": "ok"
-                , "message": "Registration successful"}
+        return {"status": "ok", "message": "Registration successful"}
 
     except HTTPException as http_exc:
         raise http_exc
@@ -87,3 +94,4 @@ def register_user(user: UserCreate, response: Response):
 
     finally:
         close_db_connection(cursor, connection)
+
