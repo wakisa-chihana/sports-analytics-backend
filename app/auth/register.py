@@ -3,26 +3,25 @@ from pydantic import BaseModel, EmailStr, Field, constr
 from passlib.context import CryptContext
 from db.connection import db_connect, close_db_connection
 from datetime import datetime, timedelta
-import secrets
+from itsdangerous import URLSafeTimedSerializer
+import os
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"]
 )
 
-# Password hashing context using bcrypt
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Pydantic model for user registration
+# 🔐 Secret key for cookie signing (load from .env in production)
+SECRET_KEY = os.getenv("COOKIE_SECRET_KEY", "super-secret-key")
+serializer = URLSafeTimedSerializer(SECRET_KEY)
+
 class UserCreate(BaseModel):
     name: str = Field(..., example="wakisa Doe", description="Full name of the user")
     email: EmailStr = Field(..., example="wakisa@example.com", description="Valid email address")
-    password: constr(min_length=8) = Field(  # type: ignore
-        ..., example="securePass123", description="Password (min. 8 characters)"
-    )
-    role: constr(to_lower=True, pattern="^(coach|player)$") = Field(  # type: ignore
-        ..., example="coach", description="Role of the user: 'coach' or 'player'"
-    )
+    password: constr(min_length=8) = Field(..., example="securePass123", description="Password (min. 8 characters)")  # type: ignore
+    role: constr(to_lower=True, pattern="^(coach|player)$") = Field(..., example="coach", description="Role of the user: 'coach' or 'player'")  # type: ignore
 
 @router.post("/register", summary="Register a new user")
 def register_user(user: UserCreate, response: Response):
@@ -33,48 +32,51 @@ def register_user(user: UserCreate, response: Response):
         connection = db_connect()
         cursor = connection.cursor()
 
-        # Check if the email already exists
+        # Check for existing email
         cursor.execute("SELECT id FROM users WHERE email = %s", (user.email,))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Email already registered.")
 
-        # Hash the password
+        # Hash password
         hashed_password = pwd_context.hash(user.password)
 
-        # Insert the new user
+        # Insert user
         cursor.execute(
-            """
-            INSERT INTO users (name, email, password_hash, role)
-            VALUES (%s, %s, %s, %s)
-            """,
+            "INSERT INTO users (name, email, password_hash, role) VALUES (%s, %s, %s, %s)",
             (user.name, user.email, hashed_password, user.role)
         )
         connection.commit()
 
-        # Fetch the newly created user's ID
+        # Get user ID
         cursor.execute("SELECT id FROM users WHERE email = %s", (user.email,))
         user_id = cursor.fetchone()[0]
 
-        # Generate a session token
-        session_token = secrets.token_urlsafe(32)
-        expires = datetime.utcnow() + timedelta(hours=3)
-
-        response.set_cookie(
-            key="122002",
-            value=session_token,
-            httponly=True,
-            max_age=3 * 3600,
-            expires=expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT"),
-            samesite="Lax"
-        )
-
-        return {
+        # 🍪 User data to be stored in cookie
+        user_data = {
             "id": user_id,
             "name": user.name,
             "email": user.email,
-            "role": user.role,
-            "message": "✅ User successfully registered and session started."
+            "role": user.role
         }
+
+        # 🔐 Sign user data
+        cookie_value = serializer.dumps(user_data)
+
+        # 🕒 Expire after 3 hours
+        expires = datetime.utcnow() + timedelta(hours=3)
+
+        response.set_cookie(
+            key="user_session",
+            value=cookie_value,
+            httponly=True,
+            max_age=3 * 3600,
+            expires=expires.strftime("%a, %d-%b-%Y %H:%M:%S GMT"),
+            samesite="Lax",
+            secure=False  # Set to True in production (HTTPS)
+        )
+
+        return {"status": "ok"
+                , "message": "Registration successful"}
 
     except HTTPException as http_exc:
         raise http_exc
