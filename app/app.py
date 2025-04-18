@@ -2,7 +2,7 @@ from flask import app
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import deleting_account, login, password_reset, password_reset_request, register, update_user
-from app.player_management import adding_player_profile, adding_players, adding_position, get_players, updating_player_profile
+from app.player_management import adding_player_profile, adding_players, adding_position, get_players, remove_by_email, remove_player, updating_player_profile
 from app.team_management import adding_team, get_coach_teams, updating_team
 from db.connection import get_db
 from fastapi import Depends, HTTPException, status
@@ -55,3 +55,5 @@ app.include_router(adding_player_profile.router)
 app.include_router(updating_player_profile.router)
 app.include_router(adding_position.router)
 app.include_router(get_players.router)
+app.include_router(remove_player.router)
+app.include_router(remove_by_email.router)

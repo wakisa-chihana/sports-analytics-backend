@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from db.connection import db_connect, close_db_connection
-import mysql.connector
+import psycopg2.extras
 
 router = APIRouter(prefix="/team_players", tags=["Player_Management"])
 
@@ -11,7 +11,7 @@ def get_players_by_team_and_coach(team_id: int, coach_id: int):
 
     try:
         connection = db_connect()
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # ✅ Verify the team belongs to the coach
         cursor.execute(
@@ -53,8 +53,8 @@ def get_players_by_team_and_coach(team_id: int, coach_id: int):
             "players": players
         }
 
-    except mysql.connector.Error as db_err:
-        raise HTTPException(status_code=500, detail=f"MySQL error: {db_err.msg}")
+    except psycopg2.Error as db_err:
+        raise HTTPException(status_code=500, detail=f"PostgreSQL error: {db_err.pgerror}")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")

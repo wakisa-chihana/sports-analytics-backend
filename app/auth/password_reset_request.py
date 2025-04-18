@@ -64,21 +64,24 @@ def send_reset_email(email: str, token: str, name: str):
     reset_link = f"{base_url}?token={token}"
 
     message = EmailMessage()
-    message["Subject"] = "🔐 Password Reset Request"
+    message["Subject"] = "Password Reset Request"
     message["From"] = os.getenv("EMAIL_USER")
     message["To"] = email
 
-    # HTML Email Content with Styles
+    # HTML Email Content with Logo placed at the top
     html_content = f"""
     <html>
     <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img src="https://drive.google.com/uc?id=15S04fRHnQzbQHAz9pL1VHv3CqkVDBDaO" alt="Sports Analytics Logo" style="max-width: 200px; vertical-align: middle;">
+            </div>
             <h2 style="color: #333333; text-align: center;">Password Reset Request</h2>
             <p style="color: #555555; font-size: 16px;">Hello, {name}</p>
             <p style="color: #555555; font-size: 16px;">A password reset was requested for your account in Sports Analytics. If this was not you, you can safely ignore this email.</p>
             <p style="color: #555555; font-size: 16px;">Click the button below to reset your password:</p>
             <div style="text-align: center;">
-                <a href="{reset_link}" style="background-color: #3498db; color: white; padding: 15px 30px; font-size: 16px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                <a href="{reset_link}" style="background-color: #031e37; color: white; padding: 15px 30px; font-size: 16px; text-decoration: none; border-radius: 5px; display: inline-block;">
                     Reset Password
                 </a>
             </div>
@@ -91,7 +94,27 @@ def send_reset_email(email: str, token: str, name: str):
     </html>
     """
 
-    message.add_alternative(html_content, subtype="html")
+    # Plain text version of the email
+    plain_text_content = f"""
+    Password Reset Request
+
+    Hello, {name}
+
+    A password reset was requested for your account in Sports Analytics. If this was not you, you can safely ignore this email.
+
+    Click the link below to reset your password:
+    {reset_link}
+
+    This link will expire in 30 minutes.
+
+    If you did not request a password reset, you can safely ignore this message.
+
+    © {datetime.utcnow().year} Sports Analytics. All rights reserved.
+    """
+
+    # Setting the email as multipart/alternative and adding plain text and HTML parts
+    message.set_content(plain_text_content)  # Plain text part
+    message.add_alternative(html_content, subtype="html")  # HTML part
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as smtp:

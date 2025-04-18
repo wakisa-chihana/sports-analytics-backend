@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from db.connection import db_connect, close_db_connection
 from datetime import datetime
-import bcrypt
+from passlib.context import CryptContext
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -10,6 +10,9 @@ load_dotenv()
 
 # Initialize the router for the users endpoint
 router = APIRouter(prefix="/users", tags=["Users"])
+
+# Passlib context for consistent password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Pydantic model to handle password reset requests
 class PasswordResetRequest(BaseModel):
@@ -26,7 +29,7 @@ def reset_password(data: PasswordResetRequest):
         connection = db_connect()
         cursor = connection.cursor()
 
-        # Query to verify if token exists and is valid (not used and not expired)
+        # Verify token existence and validity
         cursor.execute("""
             SELECT user_id, expires_at 
             FROM password_reset_tokens 
@@ -39,14 +42,14 @@ def reset_password(data: PasswordResetRequest):
 
         user_id, expires_at = result
 
-        # Check if the token is expired
+        # Check for token expiration
         if expires_at < datetime.utcnow():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token has expired.")
 
-        # Hash the new password using bcrypt
-        hashed_password = bcrypt.hashpw(data.new_password.encode('utf-8'), bcrypt.gensalt())
+        # Hash the new password using passlib for consistency
+        hashed_password = pwd_context.hash(data.new_password)
 
-        # Update the user's password in the database
+        # Update password in database
         cursor.execute("""
             UPDATE users 
             SET password_hash = %s 
@@ -60,7 +63,7 @@ def reset_password(data: PasswordResetRequest):
             WHERE token = %s
         """, (data.token,))
 
-        # Commit the changes to the database
+        # Commit changes
         connection.commit()
 
         return {"message": "✅ Password successfully reset."}
@@ -70,5 +73,4 @@ def reset_password(data: PasswordResetRequest):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while resetting the password.")
     
     finally:
-        # Ensure proper cleanup by closing the connection
         close_db_connection(cursor, connection)

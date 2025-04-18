@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from db.connection import db_connect, close_db_connection
 from datetime import datetime
@@ -15,54 +15,49 @@ def add_team(data: TeamCreateRequest):
     cursor = None
 
     try:
-        # Connect to DB
+        # Connect to DB (Make sure your db_connect function is for PostgreSQL)
         connection = db_connect()
         cursor = connection.cursor()
 
-        # Validate coach
+        # Validate coach role
         cursor.execute("SELECT role FROM users WHERE id = %s", (data.coach_id,))
         coach = cursor.fetchone()
 
         if not coach:
             raise HTTPException(
-                status_code=404,
-                detail={
-                    "error": "CoachNotFound",
-                    "message": f"No user found with ID {data.coach_id}."
-                }
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No user found with the specified coach ID."
             )
         
         if coach[0] != "coach":
             raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "InvalidRole",
-                    "message": "The specified user is not authorized to create a team (not a coach)."
-                }
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The specified user is not authorized to create a team (not a coach)."
             )
 
         # Check for duplicate team name
         cursor.execute("SELECT id FROM teams WHERE name = %s", (data.name,))
         if cursor.fetchone():
             raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "DuplicateTeamName",
-                    "message": f"A team with the name '{data.name}' already exists."
-                }
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"A team with the name '{data.name}' already exists."
             )
 
         # Insert the team
         cursor.execute(
-            "INSERT INTO teams (name, coach_id, created_at) VALUES (%s, %s, %s)",
+            "INSERT INTO teams (name, coach_id, created_at) VALUES (%s, %s, %s) RETURNING id",
             (data.name, data.coach_id, datetime.utcnow())
         )
+        team_id = cursor.fetchone()[0]  # Get the inserted team id
+
+        # Commit the changes
         connection.commit()
 
         return {
             "success": True,
             "message": "✅ Team successfully created.",
             "team": {
+                "id": team_id,
                 "name": data.name,
                 "coach_id": data.coach_id
             }
@@ -73,11 +68,8 @@ def add_team(data: TeamCreateRequest):
     except Exception as e:
         print(f"❌ Internal Server Error: {e}")
         raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "InternalServerError",
-                "message": "An unexpected error occurred while creating the team."
-            }
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred while creating the team."
         )
     finally:
         close_db_connection(cursor, connection)

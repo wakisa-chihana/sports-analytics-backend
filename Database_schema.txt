@@ -1,23 +1,25 @@
+CREATE TYPE user_role AS ENUM ('coach', 'player');
+
 CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role ENUM('coach', 'player') NOT NULL,
+    role user_role NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE teams (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     coach_id INT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE team_players (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     team_id INT NOT NULL,
     player_id INT NOT NULL,
     position VARCHAR(50),
@@ -27,7 +29,7 @@ CREATE TABLE team_players (
 );
 
 CREATE TABLE player_profiles (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     player_id INT NOT NULL UNIQUE,
     age INT,
     height_cm FLOAT,
@@ -69,19 +71,19 @@ CREATE TABLE player_profiles (
 );
 
 CREATE TABLE notifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE password_reset_tokens (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     token VARCHAR(255) NOT NULL UNIQUE,
     is_used BOOLEAN DEFAULT FALSE,
-    expires_at DATETIME,
+    expires_at TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
