@@ -7,3 +7,4 @@ passlib[bcrypt]==1.7.4
 python-jose==3.3.0
 Flask
 psycopg2-binary==2.9.9
+pydantic[email]==2.6.4
